@@ -148,113 +148,166 @@ const GUIDELINES = {
 // ── Paper Preview ─────────────────────────────────────────────
 function PaperPreview({ paper, fmt, allBodySections, refs }) {
   const fmtObj = FORMATS[fmt];
+  const isDouble = fmtObj.columns === "double"; // IEEE, ACM
  
-  // FIX 1: pass idx (0-based) directly — ROMAN[0] = "I", correct
   const sLabel = (name, idx) =>
     fmt === "IEEE"
       ? `${ROMAN[idx]}. ${name.toUpperCase()}`
       : `${idx + 1}. ${name}`;
  
+  // Section heading style varies by format
+  const secHeadStyle = {
+    fontWeight: "bold",
+    fontSize: fmt === "IEEE" ? 13 : 14,
+    textAlign: fmt === "IEEE" ? "center" : "left",
+    marginBottom: 6,
+    marginTop: 16,
+    textTransform: fmt === "IEEE" ? "uppercase" : "none",
+    letterSpacing: fmt === "IEEE" ? "0.05em" : "normal",
+  };
+ 
+  const bodyTextStyle = {
+    fontSize: 12.5,
+    lineHeight: 1.65,
+    whiteSpace: "pre-wrap",
+    textAlign: "justify",
+  };
+ 
   return (
     <div style={{
       fontFamily: "Times New Roman, serif",
-      fontSize: 14,
-      lineHeight: 1.65,
+      fontSize: 13,
+      lineHeight: 1.6,
       color: "#111",
       background: "#fff",
-      padding: "48px 56px",
-      maxWidth: 900,
+      padding: isDouble ? "36px 44px" : "48px 64px",
+      maxWidth: isDouble ? 960 : 820,
       margin: "0 auto",
-      boxShadow: "0 2px 24px rgba(0,0,0,0.08)",
+      boxShadow: "0 2px 24px rgba(0,0,0,0.10)",
       borderRadius: 4,
     }}>
-      {/* Title */}
-      <div style={{ textAlign: "center", marginBottom: 28 }}>
-        <div style={{ fontSize: 20, fontWeight: "bold", lineHeight: 1.3, marginBottom: 20 }}>
+ 
+      {/* ── HEADER: full-width for all formats ── */}
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        {/* Title */}
+        <div style={{
+          fontSize: isDouble ? 18 : 20,
+          fontWeight: "bold",
+          lineHeight: 1.25,
+          marginBottom: 16,
+          letterSpacing: "0.01em",
+        }}>
           {paper.title || "Paper Title"}
         </div>
+ 
+        {/* Authors row — IEEE/ACM side by side, Elsevier/Springer stacked */}
         {paper.authors?.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            gap: isDouble ? "32px" : "20px",
+            marginBottom: 10,
+          }}>
             {paper.authors.map((a, i) => (
-              <span key={i}>
-                <span style={{ fontStyle: "italic" }}>{a.name}</span>
-                {i < paper.authors.length - 1 && ", "}
-              </span>
-            ))}
-          </div>
-        )}
-        {paper.authors?.some(a => a.affiliation) && (
-          <div style={{ fontSize: 12, color: "#333", marginBottom: 8 }}>
-            {paper.authors.filter(a => a.affiliation).map((a, i) => (
-              <div key={i}>
-                {a.name}{a.affiliation ? ` — ${a.affiliation}` : ""}
-                {a.email ? ` — ${a.email}` : ""}
+              <div key={i} style={{ textAlign: "center", minWidth: 120 }}>
+                <div style={{ fontWeight: "bold", fontSize: 13 }}>{a.name || "Author Name"}</div>
+                {a.affiliation && <div style={{ fontSize: 11, color: "#444", fontStyle: "italic" }}>{a.affiliation}</div>}
+                {a.email && <div style={{ fontSize: 11, color: "#555" }}>{a.email}</div>}
               </div>
             ))}
           </div>
         )}
+ 
+        {/* Keywords */}
         {paper.keywords && (
-          <div style={{ fontSize: 12, marginTop: 8 }}>
-            <strong>Keywords:</strong> <em>{paper.keywords}</em>
+          <div style={{ fontSize: 12, marginTop: 10, textAlign: "left", display: "inline-block" }}>
+            <strong>Keywords—</strong><em>{paper.keywords}</em>
           </div>
         )}
       </div>
  
-      <hr style={{ border: "none", borderTop: "1px solid #888", margin: "0 0 20px" }} />
+      <hr style={{ border: "none", borderTop: "1.5px solid #555", margin: "0 0 14px" }} />
  
-      {/* Abstract */}
+      {/* ── ABSTRACT: full-width ── */}
       {paper.abstract && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: "bold", fontSize: 13, textAlign: fmt === "IEEE" ? "center" : "left", marginBottom: 8 }}>
-            {fmt === "IEEE" ? "Abstract—" : "Abstract"}
-          </div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>{paper.abstract}</div>
+        <div style={{ marginBottom: 14 }}>
+          {fmt === "IEEE" ? (
+            // IEEE: "Abstract—" inline prefix, italic label
+            <div style={{ fontSize: 12.5, lineHeight: 1.65, textAlign: "justify" }}>
+              <span style={{ fontWeight: "bold", fontStyle: "italic" }}>Abstract—</span>
+              {paper.abstract}
+            </div>
+          ) : (
+            <>
+              <div style={{ fontWeight: "bold", fontSize: 13, marginBottom: 6 }}>Abstract</div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.65, textAlign: "justify" }}>{paper.abstract}</div>
+            </>
+          )}
         </div>
       )}
  
-      <hr style={{ border: "none", borderTop: "1px solid #ccc", margin: "0 0 24px" }} />
+      <hr style={{ border: "none", borderTop: "1px solid #aaa", margin: "0 0 14px" }} />
  
-      {/* Body sections — FIX 1: pass idx directly (0-based) */}
-      {allBodySections.map((sec, idx) => {
-        const content = paper.sections?.[sectionKey(sec.name)] || "";
-        if (!content) return null;
-        return (
-          <div key={sec.id} style={{ marginBottom: 24 }}>
-            <div style={{
-              fontWeight: "bold",
-              fontSize: fmt === "IEEE" ? 13 : 14,
-              textAlign: fmt === "IEEE" ? "center" : "left",
-              marginBottom: 8,
-              textTransform: fmt === "IEEE" ? "uppercase" : "none",
-              letterSpacing: fmt === "IEEE" ? "0.05em" : "normal",
-            }}>
-              {sLabel(sec.name, idx)}
-            </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: "pre-wrap", textAlign: "justify" }}>
-              {content}
-            </div>
-          </div>
-        );
-      })}
- 
-      {/* References */}
-      {refs.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <div style={{
-            fontWeight: "bold", fontSize: 13,
-            textAlign: fmt === "IEEE" ? "center" : "left",
-            marginBottom: 12,
-            textTransform: fmt === "IEEE" ? "uppercase" : "none",
-          }}>
-            References
-          </div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-            {refs.map((ref, i) => (
-              <div key={i} style={{ marginBottom: 6 }}>
-                {formatCitation(ref, i, fmtObj.citationStyle).full}
+      {/* ── BODY: two-column for IEEE/ACM, single for Springer/Elsevier ── */}
+      {isDouble ? (
+        // Two-column layout using CSS columns
+        <div style={{
+          columnCount: 2,
+          columnGap: "24px",
+          columnRule: "1px solid #ddd",
+        }}>
+          {allBodySections.map((sec, idx) => {
+            const content = paper.sections?.[sectionKey(sec.name)] || "";
+            if (!content) return null;
+            return (
+              <div key={sec.id} style={{ breakInside: "avoid-column", marginBottom: 12 }}>
+                <div style={secHeadStyle}>{sLabel(sec.name, idx)}</div>
+                <div style={bodyTextStyle}>{content}</div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+ 
+          {/* References in two-column flow */}
+          {refs.length > 0 && (
+            <div style={{ breakInside: "avoid-column", marginTop: 12 }}>
+              <div style={{ ...secHeadStyle, textAlign: "center", textTransform: "uppercase" }}>References</div>
+              <div style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+                {refs.map((ref, i) => (
+                  <div key={i} style={{ marginBottom: 5 }}>
+                    {formatCitation(ref, i, fmtObj.citationStyle).full}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Single-column layout
+        <div>
+          {allBodySections.map((sec, idx) => {
+            const content = paper.sections?.[sectionKey(sec.name)] || "";
+            if (!content) return null;
+            return (
+              <div key={sec.id} style={{ marginBottom: 20 }}>
+                <div style={secHeadStyle}>{sLabel(sec.name, idx)}</div>
+                <div style={bodyTextStyle}>{content}</div>
+              </div>
+            );
+          })}
+ 
+          {refs.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ fontWeight: "bold", fontSize: 13, marginBottom: 10 }}>References</div>
+              <div style={{ fontSize: 12, lineHeight: 1.6 }}>
+                {refs.map((ref, i) => (
+                  <div key={i} style={{ marginBottom: 6 }}>
+                    {formatCitation(ref, i, fmtObj.citationStyle).full}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
