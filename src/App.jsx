@@ -151,8 +151,8 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
  
   return (
     // Outer scroll wrapper
-    <div id="preview-scroll-wrapper" style={{ overflowX: "auto", padding: "32px 16px", background:"#ccc" }}>
-      {/* Fixed-width A4-ish page */}
+    <div id="preview-scroll-wrapper" style={{ overflowX: "auto", overflowY: "visible", padding: "32px 16px", background:"#bbb" }}>
+      {/* Fixed-width page — screen only; print overrides via @media print */}
       <div id="print-paper" style={{
         width: PAGE_W,
         minWidth: PAGE_W,
@@ -1021,53 +1021,78 @@ export default function MedhasyaApp() {
  
   // ── PHASE 3: Preview ─────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh", background:"#ccc", fontFamily:"system-ui, sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#bbb", fontFamily:"system-ui, sans-serif" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
  
         @media print {
-          /* Hide everything except the paper */
-          body * { visibility: hidden; }
-          #print-paper, #print-paper * { visibility: visible; }
+          /* Reset everything for print */
+          html, body {
+            width: 100%;
+            height: auto;
+            margin: 0;
+            padding: 0;
+            background: white !important;
+            overflow: visible !important;
+          }
+ 
+          /* Hide all UI except the paper content */
+          .no-print { display: none !important; }
+ 
+          /* Remove screen-only styles from the scroll wrapper */
+          #preview-scroll-wrapper {
+            overflow: visible !important;
+            padding: 0 !important;
+            background: white !important;
+            width: 100% !important;
+          }
+ 
+          /* Make the paper fill the page naturally */
           #print-paper {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
             width: 100% !important;
             min-width: unset !important;
+            max-width: 100% !important;
             margin: 0 !important;
-            padding: 18mm 16mm !important;
+            padding: 12mm 14mm !important;
             box-shadow: none !important;
             border-radius: 0 !important;
             background: white !important;
+            page-break-inside: auto !important;
           }
-          /* Remove the outer scroll wrapper grey bg */
-          #preview-scroll-wrapper {
-            background: white !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-          /* Ensure two-column layout prints correctly */
-          #print-paper .two-col-body {
+ 
+          /* Two-column layout in print */
+          .two-col-body {
             column-count: 2 !important;
             column-gap: 6mm !important;
           }
-          /* Keep section blocks together */
-          #print-paper .sec-block {
-            break-inside: avoid;
+ 
+          /* Allow sections to break across pages but not mid-paragraph */
+          .sec-block {
+            break-inside: avoid-column;
+            page-break-inside: avoid;
           }
-          header, .np { display: none !important; }
+ 
+          /* Ensure content is fully visible — no overflow clipping */
+          #print-paper div, #print-paper p, #print-paper span {
+            overflow: visible !important;
+            max-height: none !important;
+          }
+ 
+          @page {
+            size: A4;
+            margin: 10mm 12mm;
+          }
         }
       `}</style>
  
-      <header style={{ padding:"11px 22px", background:C.ink, display:"flex", alignItems:"center", gap:13, position:"sticky", top:0, zIndex:10 }}>
+      {/* Top toolbar — hidden on print */}
+      <header className="no-print" style={{ padding:"11px 22px", background:C.ink, display:"flex", alignItems:"center", gap:13, position:"sticky", top:0, zIndex:10 }}>
         <button onClick={()=>setPhase("input")} style={{ border:"none", background:"transparent", cursor:"pointer", color:"#aaa", fontSize:13 }}>← Edit</button>
         <div style={{ width:1, height:20, background:"#444" }}/>
         <span style={{ color:"white", fontWeight:700, fontSize:14, maxWidth:320, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{paper.title||"Untitled"}</span>
         <span style={{ fontSize:12, background:"#333", color:"#aaa", padding:"2px 8px", borderRadius:100 }}>{fmt}</span>
         <span style={{ fontSize:12, color:"#888" }}>{totalWords.toLocaleString()} words</span>
         <div style={{ marginLeft:"auto", display:"flex", gap:9, alignItems:"center" }}>
-          <span style={{ fontSize:11, color:"#aaa" }}>Preview = PDF output</span>
           <button onClick={copyText} style={{ background:"white", color:C.inkMid, border:`1.5px solid ${C.border}`, padding:"7px 15px", borderRadius:6, fontSize:13, cursor:"pointer" }}>{copied?"✓ Copied!":"Copy Text"}</button>
           <button onClick={exportMd} style={{ background:"white", color:C.inkMid, border:`1.5px solid ${C.border}`, padding:"7px 15px", borderRadius:6, fontSize:13, cursor:"pointer" }}>↓ Markdown</button>
           <button onClick={()=>window.print()} style={{ background:C.accent, color:"white", border:"none", padding:"7px 18px", borderRadius:6, fontSize:13, fontWeight:600, cursor:"pointer" }}>🖨 Print / Save PDF</button>
@@ -1076,8 +1101,8 @@ export default function MedhasyaApp() {
  
       <PaperPreview paper={paper} fmt={fmt} allBodySections={allBodySecs} refs={refs}/>
  
-      <div className="np" style={{ textAlign:"center", padding:"14px 0 32px", fontSize:12, color:"#888" }}>
-        Medhasya AI · {format.full} · Print → Save as PDF for identical output
+      <div className="no-print" style={{ textAlign:"center", padding:"14px 0 32px", fontSize:12, color:"#777" }}>
+        Medhasya AI · {format.full} · Print → Save as PDF
       </div>
     </div>
   );
