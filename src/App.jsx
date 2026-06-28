@@ -239,10 +239,9 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
  
         {/* ── BODY: two-column or single ── */}
         {isDouble ? (
-          // CSS columns on a fixed-width div — WORKS in iframes when width is explicit pixels
           <div className="two-col-body" style={{
             columnCount: 2,
-            columnGap: "28px",
+            columnGap: "24px",
             width: "100%",
           }}>
             {allBodySections.map((sec, idx) => {
@@ -253,18 +252,26 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
               if (!text && !figures.length && !tables.length) return null;
               const label = `${ROMAN[idx]}. ${sec.name.toUpperCase()}`;
               return (
-                <div key={sec.id} className="sec-block" style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
+                // FIX: NO display:inline-block — that breaks column flow and causes blank gaps
+                // breakInside:avoid only on heading+first para, not whole section
+                <div key={sec.id} className="sec-block">
                   <div style={secHeadStyle(fmt)}>{label}</div>
-                  {text && <div style={bodyText}>{text}</div>}
+                  {text && (
+                    <div style={{
+                      ...bodyText,
+                      // FIX: normal whitespace — pre-wrap preserves pasted newlines causing mid-word breaks
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                    }}>{text}</div>
+                  )}
                   {figures.map((f, i) => <FigureBlock key={f.id} fig={f} idx={i} />)}
                   {tables.map((t, i)  => <TableBlock  key={t.id} tbl={t} idx={i} />)}
                 </div>
               );
             })}
  
-            {/* References */}
             {refs.length > 0 && (
-              <div className="sec-block" style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
+              <div className="sec-block">
                 <div style={secHeadStyle(fmt)}>References</div>
                 <div style={{ fontSize: 10, lineHeight: 1.45, fontFamily: "Times New Roman, serif" }}>
                   {refs.map((ref, i) => (
@@ -277,7 +284,6 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
             )}
           </div>
         ) : (
-          // Single column (Springer, Elsevier)
           <div>
             {allBodySections.map((sec, idx) => {
               const data = getSectionData(paper, sec.name);
@@ -291,7 +297,7 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
               return (
                 <div key={sec.id} style={{ marginBottom: 14 }}>
                   <div style={secHeadStyle(fmt)}>{label}</div>
-                  {text && <div style={{ ...bodyText, fontSize: 12, lineHeight: 1.65 }}>{text}</div>}
+                  {text && <div style={{ ...bodyText, fontSize: 12, lineHeight: 1.65, whiteSpace: "normal", wordBreak: "break-word" }}>{text}</div>}
                   {figures.map((f, i) => <FigureBlock key={f.id} fig={f} idx={i} />)}
                   {tables.map((t, i)  => <TableBlock  key={t.id} tbl={t} idx={i} />)}
                 </div>
@@ -1021,71 +1027,77 @@ export default function MedhasyaApp() {
  
   // ── PHASE 3: Preview ─────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh", background:"#bbb", fontFamily:"system-ui, sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#c8c8c8", fontFamily:"system-ui, sans-serif" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        .sec-block { margin-bottom: 2px; }
  
         @media print {
-          /* Reset everything for print */
+          /* 1. Full page reset */
           html, body {
-            width: 100%;
-            height: auto;
-            margin: 0;
-            padding: 0;
             background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
             overflow: visible !important;
+            height: auto !important;
+            width: 100% !important;
           }
  
-          /* Hide all UI except the paper content */
+          /* 2. Kill grey/brown background on every ancestor wrapper */
+          body > div,
+          body > div > div {
+            background: white !important;
+            min-height: unset !important;
+            height: auto !important;
+          }
+ 
+          /* 3. Hide toolbar + footer */
           .no-print { display: none !important; }
  
-          /* Remove screen-only styles from the scroll wrapper */
+          /* 4. Kill padding/bg on scroll wrapper */
           #preview-scroll-wrapper {
             overflow: visible !important;
             padding: 0 !important;
             background: white !important;
-            width: 100% !important;
           }
  
-          /* Make the paper fill the page naturally */
+          /* 5. Paper fills the page, no card styling */
           #print-paper {
             width: 100% !important;
             min-width: unset !important;
             max-width: 100% !important;
             margin: 0 !important;
-            padding: 12mm 14mm !important;
+            padding: 0 !important;
             box-shadow: none !important;
             border-radius: 0 !important;
             background: white !important;
-            page-break-inside: auto !important;
           }
  
-          /* Two-column layout in print */
+          /* 6. Two-column for IEEE/ACM */
           .two-col-body {
             column-count: 2 !important;
-            column-gap: 6mm !important;
+            column-gap: 5mm !important;
           }
  
-          /* Allow sections to break across pages but not mid-paragraph */
+          /* 7. Section blocks break naturally */
           .sec-block {
-            break-inside: avoid-column;
-            page-break-inside: avoid;
+            break-inside: avoid;
           }
  
-          /* Ensure content is fully visible — no overflow clipping */
-          #print-paper div, #print-paper p, #print-paper span {
+          /* 8. No clipping anywhere */
+          * {
             overflow: visible !important;
             max-height: none !important;
           }
  
+          /* 9. Page size */
           @page {
-            size: A4;
-            margin: 10mm 12mm;
+            size: A4 portrait;
+            margin: 15mm 14mm;
           }
         }
       `}</style>
  
-      {/* Top toolbar — hidden on print */}
       <header className="no-print" style={{ padding:"11px 22px", background:C.ink, display:"flex", alignItems:"center", gap:13, position:"sticky", top:0, zIndex:10 }}>
         <button onClick={()=>setPhase("input")} style={{ border:"none", background:"transparent", cursor:"pointer", color:"#aaa", fontSize:13 }}>← Edit</button>
         <div style={{ width:1, height:20, background:"#444" }}/>
@@ -1101,10 +1113,9 @@ export default function MedhasyaApp() {
  
       <PaperPreview paper={paper} fmt={fmt} allBodySections={allBodySecs} refs={refs}/>
  
-      <div className="no-print" style={{ textAlign:"center", padding:"14px 0 32px", fontSize:12, color:"#777" }}>
+      <div className="no-print" style={{ textAlign:"center", padding:"14px 0 28px", fontSize:12, color:"#666" }}>
         Medhasya AI · {format.full} · Print → Save as PDF
       </div>
     </div>
   );
 }
- 
