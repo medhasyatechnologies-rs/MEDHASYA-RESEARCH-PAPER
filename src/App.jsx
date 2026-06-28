@@ -151,9 +151,9 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
  
   return (
     // Outer scroll wrapper
-    <div style={{ overflowX: "auto", padding: "32px 16px" }}>
+    <div id="preview-scroll-wrapper" style={{ overflowX: "auto", padding: "32px 16px", background:"#ccc" }}>
       {/* Fixed-width A4-ish page */}
-      <div style={{
+      <div id="print-paper" style={{
         width: PAGE_W,
         minWidth: PAGE_W,
         background: "#fff",
@@ -240,10 +240,9 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
         {/* ── BODY: two-column or single ── */}
         {isDouble ? (
           // CSS columns on a fixed-width div — WORKS in iframes when width is explicit pixels
-          <div style={{
+          <div className="two-col-body" style={{
             columnCount: 2,
-            columnGap: "20px",
-            columnRule: "1px solid #bbb",
+            columnGap: "28px",
             width: "100%",
           }}>
             {allBodySections.map((sec, idx) => {
@@ -254,7 +253,7 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
               if (!text && !figures.length && !tables.length) return null;
               const label = `${ROMAN[idx]}. ${sec.name.toUpperCase()}`;
               return (
-                <div key={sec.id} style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
+                <div key={sec.id} className="sec-block" style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
                   <div style={secHeadStyle(fmt)}>{label}</div>
                   {text && <div style={bodyText}>{text}</div>}
                   {figures.map((f, i) => <FigureBlock key={f.id} fig={f} idx={i} />)}
@@ -265,7 +264,7 @@ function PaperPreview({ paper, fmt, allBodySections, refs }) {
  
             {/* References */}
             {refs.length > 0 && (
-              <div style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
+              <div className="sec-block" style={{ breakInside: "avoid", display: "inline-block", width: "100%" }}>
                 <div style={secHeadStyle(fmt)}>References</div>
                 <div style={{ fontSize: 10, lineHeight: 1.45, fontFamily: "Times New Roman, serif" }}>
                   {refs.map((ref, i) => (
@@ -370,12 +369,21 @@ function SectionEditor({ sec, paper, setPaper, fmt, onBack, onNext }) {
   const removeTableRow = (ri) => setEditingTable({...editingTable, rows: editingTable.rows.filter((_,r)=>r!==ri)});
   const removeTableCol = (ci) => setEditingTable({...editingTable, rows: editingTable.rows.map(r=>r.filter((_,c)=>c!==ci))});
  
-  const tabBtn = (id, label) => (
+  const tabBtn = (id, icon, label, count) => (
     <button onClick={()=>setTab(id)} style={{
-      padding:"7px 18px", fontWeight:600, fontSize:13, cursor:"pointer", border:"none",
-      borderBottom: tab===id ? `2px solid ${C.accent}` : "2px solid transparent",
-      background:"transparent", color: tab===id ? C.accent : C.inkLight,
-    }}>{label}</button>
+      padding:"9px 20px", fontWeight:600, fontSize:13, cursor:"pointer", border:"none",
+      borderBottom: tab===id ? `3px solid ${C.accent}` : "3px solid transparent",
+      background: tab===id ? C.accentLight : "transparent",
+      color: tab===id ? C.accent : C.inkLight,
+      display:"flex", alignItems:"center", gap:6, borderRadius:"6px 6px 0 0",
+      transition:"all 0.15s",
+    }}>
+      <span style={{ fontSize:15 }}>{icon}</span>
+      {label}
+      {count > 0 && (
+        <span style={{ background:C.accent, color:"white", borderRadius:100, fontSize:10, padding:"1px 6px", fontWeight:700 }}>{count}</span>
+      )}
+    </button>
   );
  
   return (
@@ -396,11 +404,23 @@ function SectionEditor({ sec, paper, setPaper, fmt, onBack, onNext }) {
       )}
  
       {/* Tab bar */}
-      <div style={{ borderBottom:`1px solid ${C.border}`, marginBottom:16, display:"flex" }}>
-        {tabBtn("text",   `Text (${wordCount(text)} words)`)}
-        {tabBtn("figures",`Figures (${figures.length})`)}
-        {tabBtn("tables", `Tables (${tables.length})`)}
+      <div style={{ borderBottom:`1px solid ${C.border}`, marginBottom:16, display:"flex", gap:4 }}>
+        {tabBtn("text",    "📝", `Text`,    0)}
+        {tabBtn("figures", "🖼️", `Figures`, figures.length)}
+        {tabBtn("tables",  "📊", `Tables`,  tables.length)}
       </div>
+ 
+      {/* Feature callout — only show when on text tab and no figures/tables yet */}
+      {tab==="text" && figures.length===0 && tables.length===0 && (
+        <div style={{ background:"#f0f7ff", border:`1px solid ${C.accent}40`, borderRadius:8, padding:"10px 14px", marginBottom:14, display:"flex", gap:12, alignItems:"center" }}>
+          <div style={{ fontSize:20 }}>💡</div>
+          <div style={{ fontSize:12, color:C.accentDark, lineHeight:1.5 }}>
+            <strong>You can add figures and tables to this section.</strong><br/>
+            Click <strong>🖼️ Figures</strong> to upload images (block diagrams, charts, plots).<br/>
+            Click <strong>📊 Tables</strong> to build comparison or results tables — they'll appear in the paper with proper captions.
+          </div>
+        </div>
+      )}
  
       {/* TEXT TAB */}
       {tab==="text" && (
@@ -418,17 +438,26 @@ function SectionEditor({ sec, paper, setPaper, fmt, onBack, onNext }) {
       {/* FIGURES TAB */}
       {tab==="figures" && (
         <div>
+          <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:7, padding:"9px 13px", marginBottom:14, fontSize:12, color:"#5d4000" }}>
+            ⚠️ <strong>Note:</strong> Uploaded images are stored in memory only — they will be lost if you refresh the page. Add your figures last, just before previewing or printing.
+          </div>
           <div style={{ marginBottom:16 }}>
             <input ref={imgRef} type="file" accept="image/*" style={{ display:"none" }} onChange={addFigure} />
-            <button onClick={()=>imgRef.current?.click()} style={{ background:C.accent, color:"white", border:"none", padding:"9px 20px", borderRadius:6, fontSize:13, fontWeight:600, cursor:"pointer" }}>
-              + Upload Image / Figure
+            <button onClick={()=>imgRef.current?.click()} style={{ background:C.accent, color:"white", border:"none", padding:"10px 22px", borderRadius:6, fontSize:13, fontWeight:600, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:8 }}>
+              🖼️ Upload Image / Figure
             </button>
-            <span style={{ fontSize:12, color:C.inkLight, marginLeft:12 }}>PNG, JPG, SVG — will appear in paper with "Fig. N. caption" label</span>
+            <span style={{ fontSize:12, color:C.inkLight, marginLeft:12 }}>PNG, JPG, SVG · appears as "Fig. N. caption" in the paper</span>
           </div>
  
           {figures.length===0 && (
-            <div style={{ textAlign:"center", padding:"32px 0", color:C.inkLight, border:`2px dashed ${C.border}`, borderRadius:8, fontSize:14 }}>
-              No figures yet. Upload one above.
+            <div
+              onClick={()=>imgRef.current?.click()}
+              style={{ textAlign:"center", padding:"40px 0", color:C.inkLight, border:`2px dashed ${C.border}`, borderRadius:8, fontSize:14, cursor:"pointer", background:"#fafaf9" }}
+              onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+              onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}
+            >
+              <div style={{ fontSize:36, marginBottom:8 }}>🖼️</div>
+              Click here or use the button above to upload a figure
             </div>
           )}
  
@@ -510,7 +539,10 @@ function SectionEditor({ sec, paper, setPaper, fmt, onBack, onNext }) {
           )}
  
           {tables.length===0 && !editingTable && (
-            <div style={{ textAlign:"center", padding:"32px 0", color:C.inkLight, border:`2px dashed ${C.border}`, borderRadius:8, fontSize:14 }}>No tables yet. Create one above.</div>
+            <div style={{ textAlign:"center", padding:"40px 0", color:C.inkLight, border:`2px dashed ${C.border}`, borderRadius:8, fontSize:14, background:"#fafaf9" }}>
+              <div style={{ fontSize:36, marginBottom:8 }}>📊</div>
+              Set rows &amp; cols above and click <strong>+ Create Table</strong>
+            </div>
           )}
  
           {tables.map((tbl,i)=>(
@@ -611,9 +643,26 @@ export default function MedhasyaApp() {
   const [renamingId, setRenamingId]   = useState(null);
   const [renameVal, setRenameVal]     = useState("");
  
-  // Auto-save
+  // Auto-save — exclude figure dataUrls from localStorage (too large, causes quota errors)
+  // Store dataUrls in memory only; warn user figures won't survive refresh
   useEffect(()=>{ try{ const s=localStorage.getItem(LS_KEY); if(s){const d=JSON.parse(s);if(d.paper)setPaper(d.paper);if(d.refs)setRefs(d.refs);if(d.fmt)setFmt(d.fmt);if(d.customSecs)setCustomSecs(d.customSecs);} }catch(_){} },[]);
-  useEffect(()=>{ try{ localStorage.setItem(LS_KEY,JSON.stringify({paper,refs,fmt,customSecs})); }catch(_){} },[paper,refs,fmt,customSecs]);
+  useEffect(()=>{
+    try{
+      // Strip dataUrls before saving (images are binary, too large for localStorage)
+      const paperToSave = {
+        ...paper,
+        sections: Object.fromEntries(
+          Object.entries(paper.sections || {}).map(([k, v]) => [
+            k,
+            typeof v === "object" && v !== null
+              ? { ...v, figures: (v.figures||[]).map(f => ({ ...f, dataUrl: "__image__" })) }
+              : v
+          ])
+        )
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify({paper: paperToSave, refs, fmt, customSecs}));
+    }catch(_){}
+  },[paper,refs,fmt,customSecs]);
  
   const clearSaved = () => { try{localStorage.removeItem(LS_KEY);}catch(_){} setPaper(defaultPaper);setRefs([]);setCustomSecs([]);setFmt("IEEE");setActiveSec(0);setPhase("format"); };
  
@@ -972,24 +1021,65 @@ export default function MedhasyaApp() {
  
   // ── PHASE 3: Preview ─────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh",background:"#ddd",fontFamily:"system-ui, sans-serif" }}>
-      <style>{`*{box-sizing:border-box;margin:0;padding:0;} @media print{header,.np{display:none!important;}}`}</style>
-      <header style={{ padding:"11px 22px",background:C.ink,display:"flex",alignItems:"center",gap:13,position:"sticky",top:0,zIndex:10 }}>
-        <button onClick={()=>setPhase("input")} style={{ border:"none",background:"transparent",cursor:"pointer",color:"#aaa",fontSize:13 }}>← Edit</button>
-        <div style={{ width:1,height:20,background:"#444" }}/>
-        <span style={{ color:"white",fontWeight:700,fontSize:14,maxWidth:320,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{paper.title||"Untitled"}</span>
-        <span style={{ fontSize:12,background:"#333",color:"#aaa",padding:"2px 8px",borderRadius:100 }}>{fmt}</span>
-        <span style={{ fontSize:12,color:"#888" }}>{totalWords.toLocaleString()} words</span>
-        <div style={{ marginLeft:"auto",display:"flex",gap:9 }}>
-          <button onClick={copyText} style={{ background:"white",color:C.inkMid,border:`1.5px solid ${C.border}`,padding:"7px 15px",borderRadius:6,fontSize:13,cursor:"pointer" }}>{copied?"✓ Copied!":"Copy Text"}</button>
-          <button onClick={exportMd} style={{ background:"white",color:C.inkMid,border:`1.5px solid ${C.border}`,padding:"7px 15px",borderRadius:6,fontSize:13,cursor:"pointer" }}>↓ Markdown</button>
-          <button onClick={()=>window.print()} style={{ background:C.accent,color:"white",border:"none",padding:"7px 18px",borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer" }}>Print / PDF</button>
+    <div style={{ minHeight:"100vh", background:"#ccc", fontFamily:"system-ui, sans-serif" }}>
+      <style>{`
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+        @media print {
+          /* Hide everything except the paper */
+          body * { visibility: hidden; }
+          #print-paper, #print-paper * { visibility: visible; }
+          #print-paper {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            min-width: unset !important;
+            margin: 0 !important;
+            padding: 18mm 16mm !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            background: white !important;
+          }
+          /* Remove the outer scroll wrapper grey bg */
+          #preview-scroll-wrapper {
+            background: white !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          /* Ensure two-column layout prints correctly */
+          #print-paper .two-col-body {
+            column-count: 2 !important;
+            column-gap: 6mm !important;
+          }
+          /* Keep section blocks together */
+          #print-paper .sec-block {
+            break-inside: avoid;
+          }
+          header, .np { display: none !important; }
+        }
+      `}</style>
+ 
+      <header style={{ padding:"11px 22px", background:C.ink, display:"flex", alignItems:"center", gap:13, position:"sticky", top:0, zIndex:10 }}>
+        <button onClick={()=>setPhase("input")} style={{ border:"none", background:"transparent", cursor:"pointer", color:"#aaa", fontSize:13 }}>← Edit</button>
+        <div style={{ width:1, height:20, background:"#444" }}/>
+        <span style={{ color:"white", fontWeight:700, fontSize:14, maxWidth:320, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{paper.title||"Untitled"}</span>
+        <span style={{ fontSize:12, background:"#333", color:"#aaa", padding:"2px 8px", borderRadius:100 }}>{fmt}</span>
+        <span style={{ fontSize:12, color:"#888" }}>{totalWords.toLocaleString()} words</span>
+        <div style={{ marginLeft:"auto", display:"flex", gap:9, alignItems:"center" }}>
+          <span style={{ fontSize:11, color:"#aaa" }}>Preview = PDF output</span>
+          <button onClick={copyText} style={{ background:"white", color:C.inkMid, border:`1.5px solid ${C.border}`, padding:"7px 15px", borderRadius:6, fontSize:13, cursor:"pointer" }}>{copied?"✓ Copied!":"Copy Text"}</button>
+          <button onClick={exportMd} style={{ background:"white", color:C.inkMid, border:`1.5px solid ${C.border}`, padding:"7px 15px", borderRadius:6, fontSize:13, cursor:"pointer" }}>↓ Markdown</button>
+          <button onClick={()=>window.print()} style={{ background:C.accent, color:"white", border:"none", padding:"7px 18px", borderRadius:6, fontSize:13, fontWeight:600, cursor:"pointer" }}>🖨 Print / Save PDF</button>
         </div>
       </header>
+ 
       <PaperPreview paper={paper} fmt={fmt} allBodySections={allBodySecs} refs={refs}/>
-      <div className="np" style={{ textAlign:"center",padding:"14px 0 32px",fontSize:12,color:"#888" }}>
-        Medhasya AI · {format.full} · Print → Save as PDF
+ 
+      <div className="np" style={{ textAlign:"center", padding:"14px 0 32px", fontSize:12, color:"#888" }}>
+        Medhasya AI · {format.full} · Print → Save as PDF for identical output
       </div>
     </div>
   );
 }
+ 
